@@ -36,6 +36,42 @@
 #include "stm32f4xx_it.h"
 
 /* USER CODE BEGIN 0 */
+// arm cmsis library includes
+#define ARM_MATH_CM4
+#include "arm_math.h"
+#include "stdbool.h"
+
+extern const uint16_t PROCESS_WINDOW;
+extern const uint16_t PROCESS_CYCLE;    //5.1m  max
+extern const uint16_t BUFFER_SIZE;
+
+extern ADC_HandleTypeDef hadc1;
+
+extern enum system_mode
+{
+  TRIGGER_MODE,
+  DEBUG_MODE,
+} system_mode;  
+
+extern char print_en;
+extern uint16_t i,j,k,pre_j;
+extern uint16_t ADC_buf[];
+
+extern float32_t temp_sin[];
+extern float32_t temp_cos[];
+
+extern float32_t res_sin[];
+extern float32_t res_cos[];
+extern float32_t calc_res[];
+
+extern float64_t max_val, min_val;
+
+extern const float32_t sin_ref[];
+extern const float32_t cos_ref[];
+extern uint16_t trig_cycle, init_cycle;
+
+extern uint64_t THRESHOLD;
+extern uint8_t ui8_my_addr;
 
 /* USER CODE END 0 */
 
@@ -90,6 +126,21 @@ void USART2_IRQHandler(void)
 void EXTI15_10_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI15_10_IRQn 0 */
+  switch (system_mode){
+    case TRIGGER_MODE:
+      system_mode = DEBUG_MODE;
+      printf("\r\nDEBUG_MODE\r\n"); 
+      HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_SET);  
+      print_en = 0;
+      break;
+    
+    case  DEBUG_MODE:
+      system_mode = TRIGGER_MODE;
+      printf("\r\nTRIGGER_MODE\r\n");
+      HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);  
+      print_en = 0;
+      break;
+  }
 
   /* USER CODE END EXTI15_10_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_10);
@@ -108,6 +159,11 @@ void DMA2_Stream0_IRQHandler(void)
   /* USER CODE END DMA2_Stream0_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_adc1);
   /* USER CODE BEGIN DMA2_Stream0_IRQn 1 */
+  // Start new process-cycle  
+//  HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*(j+1)],PROCESS_WINDOW*2); 
+//  j++;    // Encrease cycle-counter
+    HAL_ADC_Stop_DMA(&hadc1);
+    print_en = 1;
 
   /* USER CODE END DMA2_Stream0_IRQn 1 */
 }
@@ -122,7 +178,27 @@ void CAN2_RX0_IRQHandler(void)
   /* USER CODE END CAN2_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan2);
   /* USER CODE BEGIN CAN2_RX0_IRQn 1 */
+  if(HAL_CAN_Receive_IT(&hcan2, CAN_FIFO0) !=HAL_OK){
+    printf("Rev Init Fail\r\n");
+  }
+//  printf("TX:%d ",hcan2.pRxMsg->Data[0]);
+  if(hcan2.pRxMsg->Data[0] == 20){
+    if(print_en !=2){
+      j = 0;  // Reset buffer counter
+      pre_j = 0;
+      trig_cycle = 0;
+      init_cycle = 0;
+      max_val = 0;
+    // HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
+//    HAL_GPIO_TogglePin(USER_LED_GPIO_Port, USER_LED_Pin);
 
+      // Read ADC @1process-window, auto-shift
+      HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*j],PROCESS_WINDOW*2);
+    }
+  }
+  
+//  printf("Transmit ID: %d\r\n",hcan2.pRxMsg->StdId);
+  
   /* USER CODE END CAN2_RX0_IRQn 1 */
 }
 
