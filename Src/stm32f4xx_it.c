@@ -41,9 +41,9 @@
 #include "arm_math.h"
 #include "stdbool.h"
 
-extern const uint16_t PROCESS_WINDOW;
-extern const uint16_t PROCESS_CYCLE;    //10m  max
-extern const uint16_t BUFFER_SIZE;
+#define PROCESS_WINDOW    35
+#define PROCESS_CYCLE     936   //10m max, RF_Delay >0.4ms => -200
+#define BUFFER_SIZE       32760
 
 extern ADC_HandleTypeDef hadc1;
 
@@ -163,6 +163,7 @@ void DMA2_Stream0_IRQHandler(void)
   // Log full buffer --> start processing
   HAL_ADC_Stop_DMA(&hadc1);
 	done_logging = 1;
+  HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
 
   /* USER CODE END DMA2_Stream0_IRQn 1 */
 }
@@ -177,6 +178,7 @@ void CAN2_RX0_IRQHandler(void)
   /* USER CODE END CAN2_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan2);
   /* USER CODE BEGIN CAN2_RX0_IRQn 1 */
+  HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_SET);
   // Receive CAN trigger message --> start logging
 	if(HAL_CAN_Receive_IT(&hcan2, CAN_FIFO0) !=HAL_OK){
 		printf("Rev Init Fail\r\n");
@@ -191,7 +193,8 @@ void CAN2_RX0_IRQHandler(void)
 			init_cycle = 0;
 			max_val = 0;
 			// START LOGGING
-			HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[0],BUFFER_SIZE*2);
+      
+			HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf,BUFFER_SIZE*2);
 		}
 	}
   /* USER CODE END CAN2_RX0_IRQn 1 */

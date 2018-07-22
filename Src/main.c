@@ -81,29 +81,26 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-const uint16_t PROCESS_WINDOW	= 35;
-const uint16_t PROCESS_CYCLE	= 800;		//10m	max, RF_Delay >0.4ms => -200
-const uint16_t BUFFER_SIZE	  = PROCESS_WINDOW * PROCESS_CYCLE;
+#define PROCESS_WINDOW    35
+#define PROCESS_CYCLE     936		//10m	max, RF_Delay >0.4ms => -200
+#define BUFFER_SIZE       32760
 
 uint16_t ADC_buf[BUFFER_SIZE];
 uint16_t i,j,k;
 uint16_t trig_cycle, init_cycle;
-uint16_t max_cycle, min_cycle;
+uint16_t max_cycle;
 
-uint64_t THRESHOLD[4];
+uint64_t THRESHOLD[2];
 
 char print_en;
 bool done_logging;
 
-float32_t temp_sin[PROCESS_WINDOW];
-float32_t temp_cos[PROCESS_WINDOW];
-
 float32_t res_sin[PROCESS_CYCLE];
 float32_t res_cos[PROCESS_CYCLE];
 float32_t calc_res[PROCESS_CYCLE];
-float32_t phase_res;
+// float32_t phase_res;
 
-float64_t max_val, min_val;
+float64_t max_val;
 
 const float32_t sin_ref[35] = {0, 0.179, 0.351, 0.513, 0.658, 0.782, 0.881, 0.951, 0.991, 0.999, 0.975, 0.920, 0.835, 0.723, 0.588, 0.434, 0.266, 0.0900, -0.0900, -0.266, -0.434, -0.588, -0.723, -0.835, -0.920, -0.975, -0.999, -0.991, -0.951, -0.881, -0.782, -0.658, -0.513, -0.351, -0.179};
 const float32_t cos_ref[35] = {1, 0.984, 0.936, 0.858, 0.753, 0.623, 0.474, 0.309, 0.134, -0.045, -0.223, -0.393, -0.551, -0.691, -0.809, -0.901, -0.964, -0.996, -0.996, -0.964, -0.901, -0.809, -0.691, -0.551, -0.393, -0.223, -0.0450, 0.134, 0.309, 0.474, 0.623, 0.753, 0.858, 0.936, 0.984};
@@ -169,8 +166,7 @@ int main(void)
 	print_en = 0;
   done_logging = 0;
 	THRESHOLD[0] = 2*1000000;			// Energy @ starting point	
-	THRESHOLD[1] = 0*1000000;					// Minimum max value --> discard calc value
-	THRESHOLD[2] = 20*1000000;			// Maximum max value --> stop update max --> fix bug when too close
+	THRESHOLD[1] = 20*1000000;			// Maximum max value --> stop update max --> fix bug when too close
   
   // 1x: NODE
   // 2x: MAIN RECEIVER
@@ -209,7 +205,8 @@ int main(void)
   /* USER CODE BEGIN 3 */
 		//================== WAVE PROCESSING ==================//
 		// Start process when done_logging
-		if(done_logging == 1){			
+		if(done_logging == 1){
+    // HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_SET);  			
 			
       // Calculate Wave Energy
       for(j = 0; j < PROCESS_CYCLE; j++){
@@ -225,14 +222,14 @@ int main(void)
         calc_res[j] = res_sin[j]*res_sin[j] + res_cos[j]*res_cos[j];
 
         // Get max value & max_cycle
-        if((calc_res[j] > max_val) && (max_val < THRESHOLD[2])){      // Get max value
+        if((calc_res[j] > max_val) && (max_val < THRESHOLD[1])){      // Get max value
             max_cycle = j;
             max_val = calc_res[max_cycle];          
         }
       }
 
       // Handle out-of-range
-      if(max_val  < THRESHOLD[2]){
+      if(max_val  < THRESHOLD[1]){
         max_cycle = 999;
         init_cycle = 999;
       }
@@ -248,6 +245,7 @@ int main(void)
 		    
       // Reset done_logging flag
       done_logging = 0;
+      // HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
       // Turn of flag to print result 
       print_en = 1; 
       
