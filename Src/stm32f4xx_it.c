@@ -42,7 +42,7 @@
 #include "stdbool.h"
 
 extern const uint16_t PROCESS_WINDOW;
-extern const uint16_t PROCESS_CYCLE;    //5.1m  max
+extern const uint16_t PROCESS_CYCLE;    //10m  max
 extern const uint16_t BUFFER_SIZE;
 
 extern ADC_HandleTypeDef hadc1;
@@ -54,7 +54,8 @@ extern enum system_mode
 } system_mode;  
 
 extern char print_en;
-extern uint16_t i,j,k,pre_j;
+extern bool done_logging;
+extern uint16_t i,j,k;
 extern uint16_t ADC_buf[];
 
 extern float32_t temp_sin[];
@@ -159,9 +160,9 @@ void DMA2_Stream0_IRQHandler(void)
   /* USER CODE END DMA2_Stream0_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_adc1);
   /* USER CODE BEGIN DMA2_Stream0_IRQn 1 */
-	// Start new process-cycle	
-	HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*(j+1)],PROCESS_WINDOW*2);	
-	j++;		// Encrease cycle-counter
+  // Log full buffer --> start processing
+  HAL_ADC_Stop_DMA(&hadc1);
+	done_logging = 1;
 
   /* USER CODE END DMA2_Stream0_IRQn 1 */
 }
@@ -176,26 +177,23 @@ void CAN2_RX0_IRQHandler(void)
   /* USER CODE END CAN2_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan2);
   /* USER CODE BEGIN CAN2_RX0_IRQn 1 */
+  // Receive CAN trigger message --> start logging
 	if(HAL_CAN_Receive_IT(&hcan2, CAN_FIFO0) !=HAL_OK){
 		printf("Rev Init Fail\r\n");
 	}
 //	printf("TX:%d ",hcan2.pRxMsg->Data[0]);
+//  printf("Transmit ID: %d\r\n",hcan2.pRxMsg->StdId);
 	if(hcan2.pRxMsg->Data[0] == 20){
-		if(print_en !=2){
+		if(print_en !=2){ // If not DEBUG
+//    HAL_GPIO_TogglePin(USER_LED_GPIO_Port, USER_LED_Pin);
 			j = 0;	// Reset buffer counter
-			pre_j = 0;
 			trig_cycle = 0;
 			init_cycle = 0;
 			max_val = 0;
-//		HAL_GPIO_TogglePin(USER_LED_GPIO_Port, USER_LED_Pin);
-
-			// Read ADC @1process-window, auto-shift
-			HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*j],PROCESS_WINDOW*2);
+			// START LOGGING
+			HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[0],BUFFER_SIZE*2);
 		}
 	}
-	
-//	printf("Transmit ID: %d\r\n",hcan2.pRxMsg->StdId);
-  
   /* USER CODE END CAN2_RX0_IRQn 1 */
 }
 
