@@ -76,9 +76,9 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-const uint16_t PROCESS_WINDOW = 28000;
-const uint16_t PROCESS_CYCLE  = 1;    //5m  max, RF_Delay >0.4ms => -200
-const uint16_t BUFFER_SIZE    = 28000;
+const uint16_t PROCESS_WINDOW	= 35;
+const uint16_t PROCESS_CYCLE	= 800;		//5m	max, RF_Delay >0.4ms => -200
+const uint16_t BUFFER_SIZE	  = 28000;
 
 uint16_t ADC_buf[BUFFER_SIZE];
 uint16_t i,j,k,pre_j;
@@ -160,15 +160,15 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  system_mode = DEBUG_MODE;
-  print_en = 0; 
-  THRESHOLD[0] = 0.5*1000000;     // Energy @ starting point  
-  THRESHOLD[1] = 0*1000000;         // Minimum max value --> discard calc value
-  THRESHOLD[2] = 100*1000000;     // Maximum max value --> stop update max --> fix bug when too close
+	system_mode = TRIGGER_MODE;
+	print_en = 0;	
+	THRESHOLD[0] = 2*1000000;			// Energy @ starting point	
+	THRESHOLD[1] = 0*1000000;					// Minimum max value --> discard calc value
+	THRESHOLD[2] = 100*1000000;			// Maximum max value --> stop update max --> fix bug when too close
   
   // 1x: NODE
   // 2x: MAIN RECEIVER
-  CAN_Set_Node_Addr(15);
+  CAN_Set_Node_Addr(19);
 
   /* USER CODE END 1 */
 
@@ -188,9 +188,9 @@ int main(void)
   MX_USART2_UART_Init();
 
   /* USER CODE BEGIN 2 */
-  printf(TEST_CASE);
-  printf("\r\nTRIGGER_MODE\r\n");
-  HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);  
+	printf(TEST_CASE);
+	printf("\r\nTRIGGER_MODE\r\n");
+	HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);	
 
   /* USER CODE END 2 */
 
@@ -201,88 +201,98 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-    //================== Wave Detecting Algorithm ==================//
-    // Detect change of proces cycle --> Process previous cycle
-//    if(pre_j != j){     
-//      // Calculate Wave Energy
-//      res_sin[pre_j] = 0;
-//      res_cos[pre_j] = 0;
-//      for(i=0; i<PROCESS_WINDOW; i++){
-//        res_sin[pre_j] += sin_ref[i]*ADC_buf[PROCESS_WINDOW*pre_j+i];
-//        res_cos[pre_j] += cos_ref[i]*ADC_buf[PROCESS_WINDOW*pre_j+i];
-//      }
-//      calc_res[pre_j] = res_sin[pre_j]*res_sin[pre_j] + res_cos[pre_j]*res_cos[pre_j];
-//            
-//      // Update pre_j value
-//      pre_j = j;    
-//      
-//      //=============== Smart Threshold Algorithm V2 ===============//
-//      
-//      // Get max value & max_cycle
-//      if((calc_res[pre_j-1] > max_val)&&(max_val<THRESHOLD[2])){      // Get max value
-//          max_cycle = pre_j-1;
-//          max_val = calc_res[max_cycle];          
-//      }
-//            
-//      // When buffer is full/max detected --> Trace back initial wave cycle
-//      if((j == PROCESS_CYCLE-200)||(max_val>THRESHOLD[2])){
-//        HAL_ADC_Stop_DMA(&hadc1);
+		//================== Wave Detecting Algorithm ==================//
+		// Detect change of proces cycle --> Process previous cycle
+		if(pre_j != j){			
+			// Calculate Wave Energy
+			res_sin[pre_j] = 0;
+			res_cos[pre_j] = 0;
+			for(i=0; i<PROCESS_WINDOW; i++){
+				res_sin[pre_j] += sin_ref[i]*ADC_buf[PROCESS_WINDOW*pre_j+i];
+				res_cos[pre_j] += cos_ref[i]*ADC_buf[PROCESS_WINDOW*pre_j+i];
+			}
+			calc_res[pre_j] = res_sin[pre_j]*res_sin[pre_j] + res_cos[pre_j]*res_cos[pre_j];
+						
+			// Update pre_j value
+			pre_j = j;		
+			
+			//=============== Smart Threshold Algorithm V2 ===============//
+			
+			// Get max value & max_cycle
+			if((calc_res[pre_j-1] > max_val)&&(max_val<THRESHOLD[2])){			// Get max value
+					max_cycle = pre_j-1;
+					max_val = calc_res[max_cycle];					
+			}
+						
+			// When buffer is full/max detected --> Trace back initial wave cycle
+			if((j == PROCESS_CYCLE-200)||(max_val>THRESHOLD[2])){
+				HAL_ADC_Stop_DMA(&hadc1);
 
-//        // Trace back initial wave cycle
-//        for(k=1;k<30;k++){
-//          if(calc_res[max_cycle-k] < THRESHOLD[0]){
-//            init_cycle = max_cycle-k+1; 
-//            break;    // 1st time valid
-//          }
-//        }
-//        
-//        // Filter: Eleminate result when wave is too weak 
-////        if(max_val < THRESHOLD[1]){
-////          init_cycle = 0;       // Out of range
-////        }
-//        
-//        // Turn of flag to print result 
-//        print_en = 1; 
-//        
-//        // SEND DISTANCE TO CAN BUS
-//        hcan2.pTxMsg->Data[0] = ui8_my_addr;            // TX_ID
-//        hcan2.pTxMsg->Data[1] = init_cycle>>8;          // DATA 1
-//        hcan2.pTxMsg->Data[2] = init_cycle&~(0xFF00);   // DATA 2
-//        hcan2.pTxMsg->Data[3] = 'D';                    // COMMAND
-//        hcan2.pTxMsg->Data[4] = 20;                     // RX_ID
-//        if(HAL_CAN_Transmit(&hcan2,5) != HAL_OK){
-//          printf("Send Fail\r\n");
-//        }       
-//      }
-//    }
-    
-    //================== System Mode ==================//
-    switch (system_mode){
-      case TRIGGER_MODE:
-        if(print_en == 1){
-//          printf("%d %d\r\n",init_cycle,trig_cycle-init_cycle);
-          printf("%d %d\r\n",ui8_my_addr, init_cycle);      
-          print_en = 0;
-        }
-        break;
-      
-      case  DEBUG_MODE:
-        if(print_en == 1){
-          print_en = 2;
-//          printf("I^2+Q^2\r\n");
-//          for(k=0; k<PROCESS_CYCLE; k++){
-//            printf("%f\r\n",calc_res[k]);
-//            //HAL_Delay(1);
-//          }
-          //printf("trig_c %i\r\n",trig_cycle);
-          for(k=0; k<BUFFER_SIZE; k++){
-            printf("%i ",ADC_buf[k]);
-            //HAL_Delay(1);
-          }
-          printf("\r\n\n");
-        } 
-        break;
-    }
+				// Trace back initial wave cycle
+				for(k=1;k<30;k++){
+					if(calc_res[max_cycle-k] < THRESHOLD[0]){
+						init_cycle = max_cycle-k+1;	
+						break;		// 1st time valid
+					}
+				}
+				
+				// Calc slope at init cycle
+//				min_val = init_cycle;
+//				for(i=0;i<2;i++){
+//					slope = (calc_res[init_cycle-i-1]/calc_res[init_cycle-i-2]);
+//					if((slope<1.5)){
+//						init_cycle = init_cycle-i;
+//						break;
+//					}
+//				}
+				
+				// Filter: Eleminate result when wave is too weak 
+//				if(max_val < THRESHOLD[1]){
+//					init_cycle = 0;				// Out of range
+//				}
+				
+				// Turn of flag to print result 
+				print_en = 1;	
+				
+				// SEND DISTANCE TO CAN BUS
+				hcan2.pTxMsg->Data[0] = ui8_my_addr;						// TX_ID
+				hcan2.pTxMsg->Data[1] = init_cycle>>8;					// DATA 1
+				hcan2.pTxMsg->Data[2] = init_cycle&~(0xFF00);		// DATA 2
+				hcan2.pTxMsg->Data[3] = 'D';										// COMMAND
+				hcan2.pTxMsg->Data[4] = 20;											// RX_ID
+				if(HAL_CAN_Transmit(&hcan2,5) != HAL_OK){
+					printf("Send Fail\r\n");
+				}				
+			}
+		}
+		
+		//================== System Mode ==================//
+		switch (system_mode){
+			case TRIGGER_MODE:
+				if(print_en == 1){
+//					printf("%d %d\r\n",init_cycle,trig_cycle-init_cycle);
+					printf("%d %d\r\n",ui8_my_addr, init_cycle);			
+					print_en = 0;
+				}
+				break;
+			
+			case  DEBUG_MODE:
+				if(print_en == 1){
+					print_en = 2;
+					printf("I^2+Q^2\r\n");
+					for(k=0; k<PROCESS_CYCLE; k++){
+						printf("%f\r\n",calc_res[k]);
+						//HAL_Delay(1);
+					}
+					//printf("trig_c %i\r\n",trig_cycle);
+					for(k=0; k<BUFFER_SIZE; k++){
+						printf("%i ",ADC_buf[k]);
+						//HAL_Delay(1);
+					}
+					printf("\r\n\n");
+				}	
+				break;
+		}
   }
 
   /* USER CODE END 3 */

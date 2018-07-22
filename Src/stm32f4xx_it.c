@@ -159,11 +159,9 @@ void DMA2_Stream0_IRQHandler(void)
   /* USER CODE END DMA2_Stream0_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_adc1);
   /* USER CODE BEGIN DMA2_Stream0_IRQn 1 */
-  // Start new process-cycle  
-//  HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*(j+1)],PROCESS_WINDOW*2); 
-//  j++;    // Encrease cycle-counter
-    HAL_ADC_Stop_DMA(&hadc1);
-    print_en = 1;
+	// Start new process-cycle	
+	HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*(j+1)],PROCESS_WINDOW*2);	
+	j++;		// Encrease cycle-counter
 
   /* USER CODE END DMA2_Stream0_IRQn 1 */
 }
@@ -178,26 +176,25 @@ void CAN2_RX0_IRQHandler(void)
   /* USER CODE END CAN2_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan2);
   /* USER CODE BEGIN CAN2_RX0_IRQn 1 */
-  if(HAL_CAN_Receive_IT(&hcan2, CAN_FIFO0) !=HAL_OK){
-    printf("Rev Init Fail\r\n");
-  }
-//  printf("TX:%d ",hcan2.pRxMsg->Data[0]);
-  if(hcan2.pRxMsg->Data[0] == 20){
-    if(print_en !=2){
-      j = 0;  // Reset buffer counter
-      pre_j = 0;
-      trig_cycle = 0;
-      init_cycle = 0;
-      max_val = 0;
-    // HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
-//    HAL_GPIO_TogglePin(USER_LED_GPIO_Port, USER_LED_Pin);
+	if(HAL_CAN_Receive_IT(&hcan2, CAN_FIFO0) !=HAL_OK){
+		printf("Rev Init Fail\r\n");
+	}
+//	printf("TX:%d ",hcan2.pRxMsg->Data[0]);
+	if(hcan2.pRxMsg->Data[0] == 20){
+		if(print_en !=2){
+			j = 0;	// Reset buffer counter
+			pre_j = 0;
+			trig_cycle = 0;
+			init_cycle = 0;
+			max_val = 0;
+//		HAL_GPIO_TogglePin(USER_LED_GPIO_Port, USER_LED_Pin);
 
-      // Read ADC @1process-window, auto-shift
-      HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*j],PROCESS_WINDOW*2);
-    }
-  }
-  
-//  printf("Transmit ID: %d\r\n",hcan2.pRxMsg->StdId);
+			// Read ADC @1process-window, auto-shift
+			HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf[PROCESS_WINDOW*j],PROCESS_WINDOW*2);
+		}
+	}
+	
+//	printf("Transmit ID: %d\r\n",hcan2.pRxMsg->StdId);
   
   /* USER CODE END CAN2_RX0_IRQn 1 */
 }
