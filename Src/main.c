@@ -81,16 +81,16 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-#define PROCESS_WINDOW    35
-#define PROCESS_CYCLE     936		//10m	max, RF_Delay >0.4ms => -200
-#define BUFFER_SIZE       32760
+#define PROCESS_WINDOW    25      // 1MSPS
+#define PROCESS_CYCLE     1280		// 
+#define BUFFER_SIZE       32000   // 32ms, 11m @343m/s
 
 uint16_t ADC_buf[BUFFER_SIZE];
 uint16_t i,j,k;
 uint16_t trig_cycle, init_cycle;
 uint16_t max_cycle;
 
-uint64_t THRESHOLD[2];
+uint64_t THRESHOLD[3];
 
 char print_en;
 bool done_logging;
@@ -102,8 +102,8 @@ float32_t calc_res[PROCESS_CYCLE];
 
 float64_t max_val;
 
-const float32_t sin_ref[35] = {0, 0.179, 0.351, 0.513, 0.658, 0.782, 0.881, 0.951, 0.991, 0.999, 0.975, 0.920, 0.835, 0.723, 0.588, 0.434, 0.266, 0.0900, -0.0900, -0.266, -0.434, -0.588, -0.723, -0.835, -0.920, -0.975, -0.999, -0.991, -0.951, -0.881, -0.782, -0.658, -0.513, -0.351, -0.179};
-const float32_t cos_ref[35] = {1, 0.984, 0.936, 0.858, 0.753, 0.623, 0.474, 0.309, 0.134, -0.045, -0.223, -0.393, -0.551, -0.691, -0.809, -0.901, -0.964, -0.996, -0.996, -0.964, -0.901, -0.809, -0.691, -0.551, -0.393, -0.223, -0.0450, 0.134, 0.309, 0.474, 0.623, 0.753, 0.858, 0.936, 0.984};
+const float32_t sin_ref[PROCESS_WINDOW] = {0,  0.2487, 0.4818, 0.6845, 0.8443, 0.9511, 0.9980, 0.9823, 0.9048, 0.7705, 0.5878, 0.3681, 0.1253, -0.1253, -0.3681, -0.5878, -0.7705, -0.9048, -0.9823, -0.9980, -0.9511, -0.8443, -0.6845, -0.4818, -0.2487};
+const float32_t cos_ref[PROCESS_WINDOW] = {1,  0.9686, 0.8763, 0.7290, 0.5358, 0.3090, 0.06280, -0.1874, -0.4258, -0.6374, -0.8090, -0.9298, -0.9921, -0.9921, -0.9298, -0.8090, -0.6374, -0.4258, -0.1874, 0.06280, 0.3090, 0.5358, 0.7290, 0.8763, 0.9686};
 
 CanTxMsgTypeDef TxM;
 CanRxMsgTypeDef RxM;
@@ -163,11 +163,12 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 	system_mode = TRIGGER_MODE;
+  // system_mode = DEBUG_MODE;
 	print_en = 0;
   done_logging = 0;
-	THRESHOLD[0] = 2*1000000;			// Energy @ starting point	
-	THRESHOLD[1] = 20*1000000;			// Maximum max value --> stop update max --> fix bug when too close
-  
+	THRESHOLD[0] = 10000*50;			// Energy @ starting point	
+	THRESHOLD[1] = 10000*150;			// Maximum max value --> stop update max --> fix bug when too close
+  THRESHOLD[2] = 10000*10;       // Handle out-of-range
   // 1x: NODE
   // 2x: MAIN RECEIVER
   CAN_Set_Node_Addr(11);
@@ -229,15 +230,15 @@ int main(void)
       }
 
       // Handle out-of-range
-      if(max_val  < THRESHOLD[1]){
+      if(max_val  < THRESHOLD[2]){
         max_cycle = 999;
         init_cycle = 999;
       }
       else{
         // Trace back initial wave cycle
-        for(k = 1; k < 30; k++){
-          if(calc_res[max_cycle-k] < THRESHOLD[0]){
-            init_cycle = max_cycle-k+1;
+        for(k = 0; k < 30; k++){
+          if(((calc_res[max_cycle-k] - calc_res[max_cycle-k-3]) < THRESHOLD[0]) && (calc_res[max_cycle-k] < 2*THRESHOLD[0])){
+            init_cycle = max_cycle-k;
             break;    // 1st time pass threshold
           }
         }
@@ -264,7 +265,8 @@ int main(void)
 		switch (system_mode){
 			case TRIGGER_MODE:
 				if(print_en == 1){
-					printf("%f %f\r\n",(float)init_cycle,(float)max_cycle-init_cycle);
+					// printf("%.0f %.0f\r\n",(float)init_cycle,(float)max_cycle-init_cycle);
+          HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
 					// printf("%d %d\r\n",ui8_my_addr, init_cycle);			
 					print_en = 0;
 				}
@@ -273,17 +275,19 @@ int main(void)
 			case  DEBUG_MODE:
 				if(print_en == 1){
 					print_en = 2;
-					printf("I^2+Q^2\r\n");
+					printf("X=[\r\n");
 					for(k=0; k<PROCESS_CYCLE; k++){
-						printf("%f\r\n",calc_res[k]);
+						printf("%.0f ",calc_res[k]);
 						//HAL_Delay(1);
 					}
-					//printf("trig_c %i\r\n",trig_cycle);
+          printf("];\r\n\n");
+					
+          printf("Y=[\r\n");
 					for(k=0; k<BUFFER_SIZE; k++){
 						printf("%i ",ADC_buf[k]);
 						//HAL_Delay(1);
 					}
-					printf("\r\n\n");
+					printf("];\r\n\n");
 				}	
 				break;
 		}
@@ -314,11 +318,18 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLN = 180;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Activate the Over-Drive mode 
+    */
+  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
   {
     Error_Handler();
   }
@@ -358,7 +369,7 @@ static void MX_ADC1_Init(void)
     /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
     */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV6;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
@@ -395,7 +406,7 @@ static void MX_CAN2_Init(void)
   hcan2.Init.Mode = CAN_MODE_NORMAL;
   hcan2.Init.SJW = CAN_SJW_3TQ;
   hcan2.Init.BS1 = CAN_BS1_9TQ;
-  hcan2.Init.BS2 = CAN_BS2_4TQ;
+  hcan2.Init.BS2 = CAN_BS2_5TQ;
   hcan2.Init.TTCM = DISABLE;
   hcan2.Init.ABOM = DISABLE;
   hcan2.Init.AWUM = DISABLE;

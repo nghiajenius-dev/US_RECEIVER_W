@@ -41,9 +41,9 @@
 #include "arm_math.h"
 #include "stdbool.h"
 
-#define PROCESS_WINDOW    35
-#define PROCESS_CYCLE     936   //10m max, RF_Delay >0.4ms => -200
-#define BUFFER_SIZE       32760
+#define PROCESS_WINDOW    25      // 1MSPS
+#define PROCESS_CYCLE     1280    // 
+#define BUFFER_SIZE       32000   // 32ms, 11m @343m/s
 
 extern ADC_HandleTypeDef hadc1;
 
@@ -163,8 +163,7 @@ void DMA2_Stream0_IRQHandler(void)
   // Log full buffer --> start processing
   HAL_ADC_Stop_DMA(&hadc1);
 	done_logging = 1;
-  HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
-
+  
   /* USER CODE END DMA2_Stream0_IRQn 1 */
 }
 
