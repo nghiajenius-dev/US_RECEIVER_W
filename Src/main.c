@@ -35,8 +35,8 @@
 #include "stm32f4xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#define TEST_CASE       "F446:22/07/18\r\n"
-
+#define TEST_CASE           "F446:23/07/18\r\n"
+#define CAN_ADDR_OFFSET     100 // 100 node ID: 100->199
 // Trigger:
 // OUT: LD6-BLUE    PD15
 // IN:  BUTTON      PA0
@@ -169,9 +169,9 @@ int main(void)
 	THRESHOLD[0] = 10000*50;			// Energy @ starting point	
 	THRESHOLD[1] = 10000*150;			// Maximum max value --> stop update max --> fix bug when too close
   THRESHOLD[2] = 10000*10;       // Handle out-of-range
-  // 1x: NODE
+  // 1xx: NODE
   // 2x: MAIN RECEIVER
-  CAN_Set_Node_Addr(11);
+  CAN_Set_Node_Addr(0);
 
   /* USER CODE END 1 */
 
@@ -193,7 +193,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	printf(TEST_CASE);
 	printf("\r\nTRIGGER_MODE\r\n");
-	HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);	
 
   /* USER CODE END 2 */
 
@@ -206,9 +205,8 @@ int main(void)
   /* USER CODE BEGIN 3 */
 		//================== WAVE PROCESSING ==================//
 		// Start process when done_logging
-		if(done_logging == 1){
-    // HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_SET);  			
-			
+		if(done_logging == 1){			
+
       // Calculate Wave Energy
       for(j = 0; j < PROCESS_CYCLE; j++){
         // Clear data
@@ -246,7 +244,7 @@ int main(void)
 		    
       // Reset done_logging flag
       done_logging = 0;
-      // HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
+
       // Turn of flag to print result 
       print_en = 1; 
       
@@ -265,8 +263,8 @@ int main(void)
 		switch (system_mode){
 			case TRIGGER_MODE:
 				if(print_en == 1){
-					// printf("%.0f %.0f\r\n",(float)init_cycle,(float)max_cycle-init_cycle);
-          HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
+					printf("%.0f %.0f\r\n",(float)init_cycle,(float)max_cycle-init_cycle);
+          // HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
 					// printf("%d %d\r\n",ui8_my_addr, init_cycle);			
 					print_en = 0;
 				}
@@ -449,7 +447,7 @@ static void MX_CAN2_Init(void)
 
 void CAN_Set_Node_Addr(uint8_t addr)
 {
-  ui8_my_addr = addr;
+  ui8_my_addr = addr + CAN_ADDR_OFFSET;
 }
 
 /* USART2 init function */

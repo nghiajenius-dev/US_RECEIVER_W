@@ -177,7 +177,7 @@ void CAN2_RX0_IRQHandler(void)
   /* USER CODE END CAN2_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan2);
   /* USER CODE BEGIN CAN2_RX0_IRQn 1 */
-  HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_SET);
+  // HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_SET);
   // Receive CAN trigger message --> start logging
 	if(HAL_CAN_Receive_IT(&hcan2, CAN_FIFO0) !=HAL_OK){
 		printf("Rev Init Fail\r\n");
