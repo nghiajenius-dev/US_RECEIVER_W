@@ -82,8 +82,8 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 #define PROCESS_WINDOW    25      // 1MSPS
-#define PROCESS_CYCLE     1280		// 
-#define BUFFER_SIZE       32000   // 32ms, 11m @343m/s
+#define PROCESS_CYCLE     950    // 
+#define BUFFER_SIZE       23750   // 32ms, 11m @343m/s
 
 uint16_t ADC_buf[BUFFER_SIZE];
 uint16_t i,j,k;
@@ -166,12 +166,12 @@ int main(void)
   // system_mode = DEBUG_MODE;
 	print_en = 0;
   done_logging = 0;
-	THRESHOLD[0] = 10000*50;			// Energy @ starting point	
-	THRESHOLD[1] = 10000*150;			// Maximum max value --> stop update max --> fix bug when too close
-  THRESHOLD[2] = 10000*10;       // Handle out-of-range
+	THRESHOLD[0] = 10000*1;			// Energy @ starting point	
+	THRESHOLD[1] = 10000*20;			// Maximum max value --> stop update max --> fix bug when too close
+  // THRESHOLD[2] = 10000*10;       // Handle out-of-range
   // 1xx: NODE
   // 2x: MAIN RECEIVER
-  CAN_Set_Node_Addr(0);
+  CAN_Set_Node_Addr(2);
 
   /* USER CODE END 1 */
 
@@ -191,8 +191,9 @@ int main(void)
   MX_USART2_UART_Init();
 
   /* USER CODE BEGIN 2 */
-	printf(TEST_CASE);
-	printf("\r\nTRIGGER_MODE\r\n");
+  printf("%%%% #\r\n");
+	// printf(TEST_CASE);
+	// printf("\r\nTRIGGER_MODE\r\n");
 
   /* USER CODE END 2 */
 
@@ -221,26 +222,32 @@ int main(void)
         calc_res[j] = res_sin[j]*res_sin[j] + res_cos[j]*res_cos[j];
 
         // Get max value & max_cycle
-        if((calc_res[j] > max_val) && (max_val < THRESHOLD[1])){      // Get max value
-            max_cycle = j;
-            max_val = calc_res[max_cycle];          
+        // if((calc_res[j] > max_val) && (max_val <= THRESHOLD[1])){      // Get max value
+        //     max_cycle = j;
+        //     max_val = calc_res[max_cycle];          
+        // }
+        if(calc_res[j]  > THRESHOLD[1]){
+          max_cycle = j;
+          max_val = calc_res[max_cycle];
+          break;  // stop asap
         }
       }
 
-      // Handle out-of-range
-      if(max_val  < THRESHOLD[2]){
-        max_cycle = 999;
-        init_cycle = 999;
-      }
-      else{
-        // Trace back initial wave cycle
-        for(k = 0; k < 30; k++){
-          if(((calc_res[max_cycle-k] - calc_res[max_cycle-k-3]) < THRESHOLD[0]) && (calc_res[max_cycle-k] < 2*THRESHOLD[0])){
-            init_cycle = max_cycle-k;
-            break;    // 1st time pass threshold
-          }
+      // // Handle out-of-range
+      // if(max_val  < THRESHOLD[2]){
+      //   max_cycle = 999;
+      //   init_cycle = 999;
+      // }
+      // else{
+
+      // Trace back initial wave cycle
+      for(k = 0; k < 20; k++){
+        if(((calc_res[max_cycle-k] - calc_res[max_cycle-k-1]) < THRESHOLD[0])){
+          init_cycle = max_cycle-k;
+          break;    // 1st time pass threshold
         }
       }
+      // }
 		    
       // Reset done_logging flag
       done_logging = 0;

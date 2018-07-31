@@ -42,8 +42,8 @@
 #include "stdbool.h"
 
 #define PROCESS_WINDOW    25      // 1MSPS
-#define PROCESS_CYCLE     1280    // 
-#define BUFFER_SIZE       32000   // 32ms, 11m @343m/s
+#define PROCESS_CYCLE     950    // 
+#define BUFFER_SIZE       23750   // 32ms, 11m @343m/s
 
 extern ADC_HandleTypeDef hadc1;
 
@@ -185,14 +185,13 @@ void CAN2_RX0_IRQHandler(void)
 //	printf("TX:%d ",hcan2.pRxMsg->Data[0]);
 //  printf("Transmit ID: %d\r\n",hcan2.pRxMsg->StdId);
 	if(hcan2.pRxMsg->Data[0] == 20){
-		if(print_en !=2){ // If not DEBUG
+		if(print_en != 2){ // If not DEBUG
 //    HAL_GPIO_TogglePin(USER_LED_GPIO_Port, USER_LED_Pin);
 			j = 0;	// Reset buffer counter
 			trig_cycle = 0;
 			init_cycle = 0;
 			max_val = 0;
 			// START LOGGING
-      
 			HAL_ADC_Start_DMA(&hadc1,(uint32_t*)&ADC_buf,BUFFER_SIZE*2);
 		}
 	}
